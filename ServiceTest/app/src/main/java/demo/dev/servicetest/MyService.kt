@@ -2,8 +2,10 @@ package demo.dev.servicetest
 
 import android.app.Service
 import android.content.Intent
+import android.os.Binder
 import android.os.IBinder
 import android.util.Log
+import kotlin.concurrent.thread
 import kotlin.random.Random
 
 class MyService : Service() {
@@ -11,12 +13,19 @@ class MyService : Service() {
     private var mIsRandomGeneratorOn: Boolean = false
     private val TAG = "MyService"
 
+    private val binder = LocalBinder()
+
     private val min = 0
     private val max = 100
 
+    inner class LocalBinder : Binder() {
+        // Return this instance of LocalService so clients can call public methods.
+        fun getService(): MyService = this@MyService
+    }
+
 
     override fun onBind(intent: Intent?): IBinder? {
-        TODO("Not yet implemented")
+        return binder
     }
 
     override fun onRebind(intent: Intent?) {
@@ -24,36 +33,47 @@ class MyService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.i("My Service", "${Thread.currentThread().id}")
-        return super.onStartCommand(intent, flags, startId)
+        Log.i(TAG, "In onStartCommand: ${Thread.currentThread().id}")
+
+        val thread = Thread {
+            startRandomNumberGenerator()
+        }
+
+        thread.start()
+
+        return START_STICKY
     }
 
     override fun onDestroy() {
-        Log.i("My Service", "${Thread.currentThread().id} destroyed")
         super.onDestroy()
+        stopRandomNumberGenerator()
+        Log.i(TAG, "Service Destroyed")
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        Log.i(TAG,"In onUnbind")
+        Log.i(TAG, "In onUnbind")
         return super.onUnbind(intent)
     }
 
-    private fun startRandomNumber() {
+    private fun startRandomNumberGenerator() {
         while (mIsRandomGeneratorOn) {
             try {
                 Thread.sleep(1000)
                 if (mIsRandomGeneratorOn) {
-                    mRandomNumber = Random(max).nextInt() + min
-                    Log.i(TAG,"Thread Id: ${Thread.currentThread().id} - Random Number: $mRandomNumber")
+                    mRandomNumber = Random.nextInt(max,min)
+                    Log.i(
+                        TAG,
+                        "Thread Id: ${Thread.currentThread().id} - Random Number: $mRandomNumber"
+                    )
                 }
 
             } catch (e: Exception) {
-                Log.i(TAG,"Thread Interrupted")
+                Log.i(TAG, "Thread Interrupted")
             }
         }
     }
 
-    private fun stopRandomNumber() {
+    private fun stopRandomNumberGenerator() {
         mIsRandomGeneratorOn = false
     }
 
